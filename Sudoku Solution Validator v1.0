@@ -1,0 +1,256 @@
+/*
+ * threads.c
+ *
+ *  Created on: Jul 1, 2015
+ *      Author: bhargav
+ */
+
+#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/shm.h>
+#include <sys/ipc.h>
+#include <pthread.h>
+											//Soduku to be solved
+int sudoku [9][9]={
+					{4,3,5,2,6,9,7,8,1},
+					{6,8,2,5,7,1,4,9,3},
+					{1,9,7,8,3,4,5,6,2},
+					{8,2,6,1,9,5,3,4,7},
+					{3,7,4,6,8,2,9,1,5},
+					{9,5,1,7,4,3,6,2,8},
+					{5,1,9,3,2,6,8,7,4},
+					{2,4,8,9,5,7,1,3,6},
+					{7,6,3,4,1,8,2,5,9}
+};
+
+typedef struct								//struct which is passed to each thread
+{
+	int flag;								//identifier to tell if row/column/box needs to be scanned 0 for row, 1 for column and 2 for box
+	int row,col;							// row number and column  number info
+	}parameters;
+
+typedef struct								//struct to store result/ status of scan
+{
+	int status_row[9];						//array to store each row's results
+	int status_col[9];						//array to store each colomn's result
+	int box[3][3];							//array to store each box's result
+}status;
+
+status res;									//object of type status
+
+void *print(void *a);						//function to print the soduku
+void *checker(void *a);						//function to check rows and coloumns
+void *box_checker(void *a);					//function to check box
+
+int main(int argc, char *argv[])
+{
+
+pthread_t tid_r, tid_c,tid_0,tid_1,tid_2,tid_3,tid_4,tid_5,tid_6,tid_7,tid_8;	//11 threads in all. 9 threads to scan each box, 1 thread to scan all rows and one to scan all columns
+pthread_attr_t attr;
+
+parameters *data_r = (parameters *) malloc(sizeof(parameters));	//parameter to be passed into thread that will scan all rows
+data_r->col = 0;
+data_r->row = 0;
+data_r->flag = 0;	//flag == 0 for rows
+
+parameters *data_c = (parameters *) malloc(sizeof(parameters));	//parameters to be passed into thread that will scan all colomns
+data_c->col = 0;
+data_c->row = 0;
+data_c->flag = 1;	//flag ==1 for coloumns
+
+parameters *data_0 = (parameters *) malloc(sizeof(parameters));	//parameters to be passed into thread that will scan the first box
+data_0->col = 0;
+data_0->row = 0;
+data_0->flag = 2;	//flag==2 for box
+
+parameters *data_1 = (parameters *) malloc(sizeof(parameters));	//box 1
+data_1->col = 1;
+data_1->row = 0;
+data_1->flag = 2;
+
+parameters *data_2 = (parameters *) malloc(sizeof(parameters));
+data_2->col = 2;
+data_2->row = 0;
+data_2->flag = 2;
+
+parameters *data_3 = (parameters *) malloc(sizeof(parameters));
+data_3->col = 0;
+data_3->row = 1;
+data_3->flag = 2;
+
+parameters *data_4 = (parameters *) malloc(sizeof(parameters));
+data_4->col = 1;
+data_4->row = 1;
+data_4->flag = 2;
+
+parameters *data_5 = (parameters *) malloc(sizeof(parameters));
+data_5->col = 2;
+data_5->row = 1;
+data_5->flag = 2;
+
+parameters *data_6 = (parameters *) malloc(sizeof(parameters));
+data_6->col = 0;
+data_6->row = 2;
+data_6->flag = 2;
+
+parameters *data_7 = (parameters *) malloc(sizeof(parameters));
+data_7->col = 1;
+data_7->row = 2;
+data_7->flag = 2;
+
+parameters *data_8 = (parameters *) malloc(sizeof(parameters));
+data_8->col = 2;
+data_8->row = 2;
+data_8->flag = 2;
+
+pthread_attr_init(&attr);
+
+pthread_create(&tid_r,&attr,checker,data_r);	//thread for row scanning
+pthread_create(&tid_c,&attr,checker,data_c);	//thread for column scanning
+pthread_create(&tid_0,&attr,box_checker,data_0);	//thread for box 0 scanning
+pthread_create(&tid_1,&attr,box_checker,data_1);	//thread for box 1 scanning
+pthread_create(&tid_2,&attr,box_checker,data_2);
+pthread_create(&tid_3,&attr,box_checker,data_3);
+pthread_create(&tid_4,&attr,box_checker,data_4);
+pthread_create(&tid_5,&attr,box_checker,data_5);
+pthread_create(&tid_6,&attr,box_checker,data_6);
+pthread_create(&tid_7,&attr,box_checker,data_7);
+pthread_create(&tid_8,&attr,box_checker,data_8);
+
+pthread_join(tid_r,NULL);	//waiting for threads to finish executing
+pthread_join(tid_c,NULL);
+pthread_join(tid_0,NULL);
+pthread_join(tid_1,NULL);
+pthread_join(tid_2,NULL);
+pthread_join(tid_3,NULL);
+pthread_join(tid_4,NULL);
+pthread_join(tid_5,NULL);
+pthread_join(tid_6,NULL);
+pthread_join(tid_7,NULL);
+pthread_join(tid_8,NULL);
+
+int i, j;
+
+for(i = 0; i<3; i++)
+{
+	for(j = 0; j<3; j++)
+	{
+
+		if (res.box[i][j] != 1)		// checking the result of box scanning, if a box satisfies the condition it's corresponding element will be 1 or else 0
+		{
+
+			printf("Sudoku is not right\n");
+					return 0;
+		}
+	}
+
+}
+
+for(i = 0; i<9; i++)
+{
+
+	if((res.status_col[i] != 1) | (res.status_row[i] != 1))	//checking the result of rows and colomns scanning. if a row/column satisfies the condition it's corresponding element will be 1 else 0
+		{
+
+		printf("Sudoku is not right\n");
+		return 0;
+		}
+}
+printf("Congo!! Sudoku is right\n");
+return 0;
+}
+
+void *print(void *a)
+{
+int i,j;
+for(i =0; i<9;i++)
+{
+	for(j=0; j<9;j++)
+		{
+		printf("%d \t", sudoku[i][j]);
+		}
+	printf("\n");
+}
+
+}
+void *checker(void *a)
+{
+parameters *p = (parameters *)a;	// getting parameters passed by pthread_create
+ 	int i,j;
+	int sum =0;
+if(p->flag == 0)	//row data
+{
+
+	for(j =0; j<9; j++)
+	{
+	for(i=0; i<9; i++)
+	{
+		sum += sudoku[j][i];	//Sumup all elements in a row.
+	}
+
+	if(sum == 45)				// sum of 1 - 9 will be 45. so checking if the sum is 45
+		res.status_row[j] = 1;	//and setting the status of the row suitably
+
+	else
+		res.status_row[j] = 0;
+
+	sum =0;
+	}
+
+
+}
+
+else if(p->flag == 1)	//col data
+{
+	int i,j, sum;
+	for(j = 0; j<9; j++)
+	{
+	for(i=0; i<9; i++)
+		{
+			sum += sudoku[i][j];	//sumup all elements in a colomn
+		}
+		if(sum ==45)
+		res.status_col[j] =1;
+	else
+		res.status_col[j] =0;
+	sum =0;
+	}
+}
+return 0;
+
+}
+
+void *box_checker(void *a)
+{
+	parameters *p = (parameters *)a;
+	int i,j,sum;
+	int thres_col, thres_row;
+	thres_col = 3*(p->col);
+	thres_row = 3*(p->row);
+	if(p->flag == 2)
+	{
+
+		for(i= thres_col; i < (thres_col+3); i++)
+		{
+			for(j= thres_row; j < (thres_row+3); j++)
+			{
+				sum += sudoku[i][j];					//sum of all elements in the box should add up to 45 if sudoku is right.
+			}
+		}
+
+		if(sum == 45)
+		{
+			res.box[thres_col/3][thres_row/3] = 1;
+		}
+		else
+			res.box[thres_col/3][thres_row/3] = 0;
+		sum =0;
+	}
+
+return 0;
+}
+
+
